@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pour qui je joue ?</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" defer></script>
+  <script src="https://unpkg.com/jspdf@2.5.2/dist/jspdf.umd.min.js" defer></script>
+</head>
+<body class="bg-gray-50 font-sans min-h-screen flex flex-col">
+
+  <!-- Progress bar -->
+  <div id="progress-bar" class="hidden fixed top-0 left-0 w-full z-50 bg-white shadow-sm">
+    <div class="max-w-2xl mx-auto px-4 py-3 flex items-center gap-3">
+      <span id="progress-label" class="text-sm text-gray-500 whitespace-nowrap">Étape 1/6</span>
+      <div class="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+        <div id="progress-fill" class="h-full bg-blue-900 rounded-full transition-all duration-500" style="width: 16.66%"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main container -->
+  <main class="flex-1 flex items-start justify-center p-4 pt-8">
+    <div class="w-full max-w-4xl">
+
+      <!-- STEP 1: Welcome -->
+      <section id="step-1" class="step">
+        <div class="text-center max-w-lg mx-auto">
+          <h1 class="text-4xl font-bold text-blue-950 mb-3">Pour qui je joue ?</h1>
+          <p class="text-gray-500 mb-10 text-lg">Un exercice pour mieux comprendre ce qui vous motive.</p>
+
+          <div class="mb-8">
+            <p class="text-sm text-gray-400 mb-4 uppercase tracking-wider font-medium">Choisissez votre contexte</p>
+            <div class="flex gap-4 justify-center">
+              <button onclick="selectMode('sport')"
+                class="mode-btn px-8 py-4 rounded-2xl border-2 border-gray-200 hover:border-blue-900 hover:bg-blue-950 hover:text-white transition-all duration-300 text-lg font-medium">
+                🏅 Sport
+              </button>
+              <button onclick="selectMode('entreprise')"
+                class="mode-btn px-8 py-4 rounded-2xl border-2 border-gray-200 hover:border-blue-900 hover:bg-blue-950 hover:text-white transition-all duration-300 text-lg font-medium">
+                💼 Entreprise
+              </button>
+            </div>
+          </div>
+
+          <div class="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-center">
+            <label class="flex items-center gap-2 cursor-pointer text-sm text-gray-500">
+              <input type="radio" name="guidedMode" value="guided" checked class="accent-blue-900">
+              Mode guidé <span class="text-gray-400">(avec instructions)</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer text-sm text-gray-500">
+              <input type="radio" name="guidedMode" value="session">
+              Mode séance <span class="text-gray-400">(épuré)</span>
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <!-- STEP 2: Card placement (drag & drop) -->
+      <section id="step-2" class="step hidden">
+        <div class="text-center mb-6">
+          <h2 class="text-2xl font-bold text-blue-950 mb-2" id="step2-title">Pour qui je joue ?</h2>
+          <p class="guided-text text-gray-500">Glissez les cartes des personnes pour qui vous jouez autour de la carte centrale.</p>
+        </div>
+
+        <div class="flex flex-col lg:flex-row gap-6">
+          <!-- Card pool -->
+          <div id="card-pool" class="lg:w-56 flex-shrink-0">
+            <p class="text-xs text-gray-400 uppercase tracking-wider mb-3 font-medium">Cartes disponibles</p>
+            <div id="pool-cards" class="flex flex-row lg:flex-col flex-wrap gap-2">
+              <!-- Cards injected by JS -->
+            </div>
+          </div>
+
+          <!-- Drop zone -->
+          <div class="flex-1">
+            <div id="drop-zone" class="relative bg-white rounded-3xl border-2 border-dashed border-gray-200 min-h-[400px] lg:min-h-[500px] flex items-center justify-center">
+              <!-- Central card -->
+              <div id="central-card" class="central-card bg-blue-950 text-white px-6 py-4 rounded-2xl shadow-lg text-center z-10 pointer-events-none">
+                <p class="font-bold text-lg" id="central-card-text">Pour qui<br>je joue ?</p>
+              </div>
+              <!-- Dropped cards will appear here -->
+            </div>
+          </div>
+        </div>
+
+        <div class="flex justify-end mt-6">
+          <button onclick="goToStep(3)" id="btn-step3" class="btn-next bg-blue-950 text-white px-8 py-3 rounded-xl font-medium hover:bg-blue-800 transition disabled:opacity-40 disabled:cursor-not-allowed" disabled>
+            Étape suivante →
+          </button>
+        </div>
+      </section>
+
+      <!-- STEP 3: Individual percentage sliders -->
+      <section id="step-3" class="step hidden">
+        <div class="text-center mb-8">
+          <h2 class="text-2xl font-bold text-blue-950 mb-2">Répartition individuelle</h2>
+          <p class="guided-text text-gray-500">Sur 100%, combien donnez-vous à chaque personne ?</p>
+        </div>
+
+        <div id="sliders-container" class="max-w-xl mx-auto space-y-4">
+          <!-- Sliders injected by JS -->
+        </div>
+
+        <div class="max-w-xl mx-auto mt-6">
+          <div class="flex items-center justify-between text-sm">
+            <span class="text-gray-400">Total</span>
+            <span id="total-percent" class="font-bold text-blue-950 text-lg">0%</span>
+          </div>
+          <div class="h-2 bg-gray-200 rounded-full overflow-hidden mt-1">
+            <div id="total-bar" class="h-full rounded-full transition-all duration-300 bg-blue-900" style="width: 0%"></div>
+          </div>
+          <p id="total-warning" class="text-red-500 text-sm mt-1 hidden">Le total doit faire exactement 100%</p>
+        </div>
+
+        <div class="flex justify-between mt-8 max-w-xl mx-auto">
+          <button onclick="goToStep(2)" class="btn-prev text-gray-500 px-6 py-3 rounded-xl font-medium hover:bg-gray-100 transition">
+            ← Retour
+          </button>
+          <button onclick="goToStep(4)" id="btn-step4" class="btn-next bg-blue-950 text-white px-8 py-3 rounded-xl font-medium hover:bg-blue-800 transition disabled:opacity-40 disabled:cursor-not-allowed" disabled>
+            Étape suivante →
+          </button>
+        </div>
+      </section>
+
+      <!-- STEP 4: Moi vs Les Autres (grouped) -->
+      <section id="step-4" class="step hidden">
+        <div class="text-center mb-8">
+          <h2 class="text-2xl font-bold text-blue-950 mb-2">Moi vs Les Autres</h2>
+          <p class="guided-text text-gray-500">Si vous regroupez toutes les autres personnes, quel pourcentage global donneriez-vous à « Moi » vs « Les Autres » ?</p>
+        </div>
+
+        <div class="max-w-xl mx-auto">
+          <!-- Grouped slider -->
+          <div class="bg-white rounded-2xl p-8 shadow-sm border border-gray-100">
+            <div class="flex justify-between mb-4">
+              <div class="text-center">
+                <p class="text-sm text-gray-400 mb-1">Moi</p>
+                <p id="grouped-moi-val" class="text-3xl font-bold text-blue-950">50%</p>
+              </div>
+              <div class="text-center">
+                <p class="text-sm text-gray-400 mb-1">Les Autres</p>
+                <p id="grouped-others-val" class="text-3xl font-bold text-gray-400">50%</p>
+              </div>
+            </div>
+            <input type="range" id="grouped-slider" min="0" max="100" value="50" step="10"
+              class="w-full h-3 rounded-full appearance-none cursor-pointer accent-blue-900">
+            <div class="flex justify-between text-xs text-gray-300 mt-1">
+              <span>0%</span>
+              <span>100%</span>
+            </div>
+          </div>
+
+          <!-- Comparison with step 3 detail -->
+          <div id="comparison-box" class="mt-8 bg-gray-50 rounded-2xl p-6 border border-gray-100">
+            <p class="text-sm text-gray-400 mb-4 text-center font-medium">Comparaison avec votre répartition individuelle</p>
+            <div class="grid grid-cols-2 gap-6">
+              <!-- Step 3 detail -->
+              <div class="text-center">
+                <p class="text-xs text-gray-400 mb-3 font-medium">Étape précédente (détail)</p>
+                <div class="space-y-1">
+                  <p class="text-2xl font-bold text-blue-950"><span id="compare-detail-moi">-</span>% <span class="text-sm font-normal text-gray-400">Moi</span></p>
+                  <p class="text-2xl font-bold text-gray-400"><span id="compare-detail-others">-</span>% <span class="text-sm font-normal text-gray-400">Les Autres</span></p>
+                </div>
+              </div>
+              <!-- Step 4 global -->
+              <div class="text-center">
+                <p class="text-xs text-gray-400 mb-3 font-medium">Votre ressenti global</p>
+                <div class="space-y-1">
+                  <p class="text-2xl font-bold text-blue-950"><span id="compare-global-moi">50</span>% <span class="text-sm font-normal text-gray-400">Moi</span></p>
+                  <p class="text-2xl font-bold text-gray-400"><span id="compare-global-others">50</span>% <span class="text-sm font-normal text-gray-400">Les Autres</span></p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex justify-between mt-8 max-w-xl mx-auto">
+          <button onclick="goToStep(3)" class="btn-prev text-gray-500 px-6 py-3 rounded-xl font-medium hover:bg-gray-100 transition">
+            ← Retour
+          </button>
+          <button onclick="goToStep(5)" class="btn-next bg-blue-950 text-white px-8 py-3 rounded-xl font-medium hover:bg-blue-800 transition">
+            Étape suivante →
+          </button>
+        </div>
+      </section>
+
+      <!-- STEP 5: Verbalization -->
+      <section id="step-5" class="step hidden">
+        <div class="text-center mb-8">
+          <h2 class="text-2xl font-bold text-blue-950 mb-2">Verbalisation</h2>
+          <p class="guided-text text-gray-500">Pour chaque personne, expliquez pourquoi vous jouez pour elle.</p>
+        </div>
+
+        <div id="verbalization-container" class="max-w-xl mx-auto space-y-4">
+          <!-- Cards with text fields injected by JS -->
+        </div>
+
+        <div class="flex justify-between mt-8 max-w-xl mx-auto">
+          <button onclick="goToStep(4)" class="btn-prev text-gray-500 px-6 py-3 rounded-xl font-medium hover:bg-gray-100 transition">
+            ← Retour
+          </button>
+          <button onclick="goToStep(6)" class="btn-next bg-blue-950 text-white px-8 py-3 rounded-xl font-medium hover:bg-blue-800 transition">
+            Voir le récapitulatif →
+          </button>
+        </div>
+      </section>
+
+      <!-- STEP 6: Recap -->
+      <section id="step-6" class="step hidden">
+        <div id="recap-content">
+          <div class="text-center mb-8">
+            <h2 class="text-2xl font-bold text-blue-950 mb-2">Récapitulatif</h2>
+            <p class="text-gray-500 text-sm" id="recap-mode-label"></p>
+          </div>
+
+          <div class="max-w-2xl mx-auto space-y-6">
+            <!-- Cards chosen -->
+            <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+              <h3 class="text-sm font-medium text-gray-400 uppercase tracking-wider mb-4">Personnes choisies</h3>
+              <div id="recap-cards" class="flex flex-wrap gap-2">
+                <!-- Injected by JS -->
+              </div>
+            </div>
+
+            <!-- Individual distribution -->
+            <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+              <h3 class="text-sm font-medium text-gray-400 uppercase tracking-wider mb-4">Répartition individuelle</h3>
+              <div id="recap-individual" class="space-y-3">
+                <!-- Injected by JS -->
+              </div>
+            </div>
+
+            <!-- Grouped comparison -->
+            <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+              <h3 class="text-sm font-medium text-gray-400 uppercase tracking-wider mb-4">Moi vs Les Autres</h3>
+              <div class="grid grid-cols-2 gap-6">
+                <div class="text-center">
+                  <p class="text-xs text-gray-400 mb-3 font-medium">Répartition détaillée</p>
+                  <div class="space-y-1">
+                    <p class="text-2xl font-bold text-blue-950"><span id="recap-detail-moi">-</span>% <span class="text-sm font-normal text-gray-400">Moi</span></p>
+                    <p class="text-2xl font-bold text-gray-400"><span id="recap-detail-others">-</span>% <span class="text-sm font-normal text-gray-400">Les Autres</span></p>
+                  </div>
+                </div>
+                <div class="text-center">
+                  <p class="text-xs text-gray-400 mb-3 font-medium">Ressenti global</p>
+                  <div class="space-y-1">
+                    <p class="text-2xl font-bold text-blue-950"><span id="recap-global-moi">-</span>% <span class="text-sm font-normal text-gray-400">Moi</span></p>
+                    <p class="text-2xl font-bold text-gray-400"><span id="recap-global-others">-</span>% <span class="text-sm font-normal text-gray-400">Les Autres</span></p>
+                  </div>
+                </div>
+              </div>
+              <div id="recap-gap" class="mt-4 text-center text-sm text-gray-500 hidden">
+                <p>Écart : <span id="recap-gap-value" class="font-semibold text-blue-950"></span> points</p>
+              </div>
+            </div>
+
+            <!-- Verbalization notes -->
+            <div id="recap-notes-section" class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hidden">
+              <h3 class="text-sm font-medium text-gray-400 uppercase tracking-wider mb-4">Notes de verbalisation</h3>
+              <div id="recap-notes" class="space-y-3">
+                <!-- Injected by JS -->
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex flex-col sm:flex-row justify-between gap-4 mt-8 max-w-2xl mx-auto">
+          <button onclick="goToStep(5)" class="btn-prev text-gray-500 px-6 py-3 rounded-xl font-medium hover:bg-gray-100 transition order-2 sm:order-1">
+            ← Retour
+          </button>
+          <div class="flex gap-3 order-1 sm:order-2">
+            <button onclick="exportPDF()" class="bg-blue-950 text-white px-5 py-3 rounded-xl font-medium hover:bg-blue-800 transition flex items-center gap-2 flex-1 justify-center">
+              📄 Exporter en PDF
+            </button>
+            <button onclick="restart()" class="border-2 border-gray-200 text-gray-600 px-5 py-3 rounded-xl font-medium hover:bg-gray-100 transition flex-1 text-center">
+              ↻ Recommencer
+            </button>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
