@@ -23,6 +23,58 @@ let state = {
 };
 
 // ============================================================
+// LOCAL STORAGE — save/restore progress
+// ============================================================
+
+const STORAGE_KEY = 'pourQuiJeJoue_state';
+
+function saveState() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch (e) {
+    // Silent fail if localStorage is full or unavailable
+  }
+}
+
+function loadState() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      // Merge with default state to handle missing keys
+      state = { ...state, ...parsed };
+      return true;
+    }
+  } catch (e) {
+    // Silent fail
+  }
+  return false;
+}
+
+function clearSavedState() {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch (e) {
+    // Silent fail
+  }
+}
+
+// ============================================================
+// INIT — restore progress on page load
+// ============================================================
+
+document.addEventListener('DOMContentLoaded', () => {
+  const hasState = loadState();
+  if (hasState && state.currentStep > 1 && state.mode) {
+    // Restore guided mode class
+    if (!state.guided) {
+      document.body.classList.add('session-mode');
+    }
+    goToStep(state.currentStep);
+  }
+});
+
+// ============================================================
 // STEP 1: MODE SELECTION
 // ============================================================
 
@@ -35,6 +87,7 @@ function selectMode(mode) {
     document.body.classList.add('session-mode');
   }
 
+  saveState();
   goToStep(2);
 }
 
@@ -48,6 +101,7 @@ function goToStep(step) {
   if (step === 4 && !isTotalValid()) return;
 
   state.currentStep = step;
+  saveState();
 
   // Hide all steps
   document.querySelectorAll('.step').forEach(s => s.classList.add('hidden'));
@@ -80,7 +134,7 @@ function goToStep(step) {
 }
 
 // ============================================================
-// STEP 2: CARD PLACEMENT (DRAG & DROP)
+// STEP 2: CARD PLACEMENT (DRAG & DROP + CLICK)
 // ============================================================
 
 function buildCardPlacement() {
@@ -139,6 +193,27 @@ function createCardElement(name) {
   card.addEventListener('dragstart', onDragStart);
   card.addEventListener('dragend', onDragEnd);
 
+  // Click to toggle card placement (fix: no duplication)
+  card.addEventListener('click', (e) => {
+    // Ignore if this was a drag
+    if (card.classList.contains('was-dragged')) {
+      card.classList.remove('was-dragged');
+      return;
+    }
+    const dropZone = document.getElementById('drop-zone');
+    const pool = document.getElementById('pool-cards');
+
+    if (card.classList.contains('placed')) {
+      // Click on a placed card → remove it
+      removeCard(name, dropZone, pool);
+    } else {
+      // Click on a pool card → place it at a random safe position
+      const rect = dropZone.getBoundingClientRect();
+      const pos = getRandomSafePosition();
+      placeCard(name, rect.left + (pos.x / 100) * rect.width, rect.top + (pos.y / 100) * rect.height, dropZone, pool);
+    }
+  });
+
   // Touch events for mobile
   card.addEventListener('touchstart', onTouchStart, { passive: false });
   card.addEventListener('touchmove', onTouchMove, { passive: false });
@@ -147,12 +222,30 @@ function createCardElement(name) {
   return card;
 }
 
+// Get a random position that avoids the central card zone
+function getRandomSafePosition() {
+  let x, y;
+  do {
+    x = 10 + Math.random() * 75;
+    y = 10 + Math.random() * 75;
+  } while (isInCentralZone(x, y));
+  return { x, y };
+}
+
+// Check if a position (in %) overlaps with the central card
+function isInCentralZone(xPercent, yPercent) {
+  // Central card is at 50%, 50% — exclude a zone around it
+  return xPercent > 30 && xPercent < 70 && yPercent > 30 && yPercent < 70;
+}
+
 // --- Desktop Drag & Drop ---
 
 let draggedCard = null;
+let dragMoved = false;
 
 function onDragStart(e) {
   draggedCard = e.target;
+  dragMoved = false;
   e.target.classList.add('dragging');
   e.dataTransfer.effectAllowed = 'move';
   e.dataTransfer.setData('text/plain', e.target.getAttribute('data-card'));
@@ -160,12 +253,16 @@ function onDragStart(e) {
 
 function onDragEnd(e) {
   e.target.classList.remove('dragging');
+  if (dragMoved) {
+    e.target.classList.add('was-dragged');
+  }
   draggedCard = null;
 }
 
 function setupDropZone(dropZone, pool) {
   dropZone.addEventListener('dragover', (e) => {
     e.preventDefault();
+    dragMoved = true;
     dropZone.classList.add('drag-over');
   });
 
@@ -182,7 +279,10 @@ function setupDropZone(dropZone, pool) {
   });
 
   // Allow dropping back to pool
-  pool.addEventListener('dragover', (e) => e.preventDefault());
+  pool.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dragMoved = true;
+  });
   pool.addEventListener('drop', (e) => {
     e.preventDefault();
     const name = e.dataTransfer.getData('text/plain');
@@ -193,14 +293,29 @@ function setupDropZone(dropZone, pool) {
 
 function placeCard(name, clientX, clientY, dropZone, pool) {
   const rect = dropZone.getBoundingClientRect();
-  const x = ((clientX - rect.left) / rect.width) * 100;
-  const y = ((clientY - rect.top) / rect.height) * 100;
+  let x = ((clientX - rect.left) / rect.width) * 100;
+  let y = ((clientY - rect.top) / rect.height) * 100;
 
   // Clamp to stay within bounds
-  const clampedX = Math.max(5, Math.min(85, x));
-  const clampedY = Math.max(5, Math.min(85, y));
+  let clampedX = Math.max(5, Math.min(85, x));
+  let clampedY = Math.max(5, Math.min(85, y));
 
-  // Add to placed list
+  // Push away from central zone if overlapping
+  if (isInCentralZone(clampedX, clampedY)) {
+    // Move to nearest edge of the exclusion zone
+    const distToLeft = Math.abs(clampedX - 30);
+    const distToRight = Math.abs(clampedX - 70);
+    const distToTop = Math.abs(clampedY - 30);
+    const distToBottom = Math.abs(clampedY - 70);
+    const minDist = Math.min(distToLeft, distToRight, distToTop, distToBottom);
+
+    if (minDist === distToLeft) clampedX = 25;
+    else if (minDist === distToRight) clampedX = 75;
+    else if (minDist === distToTop) clampedY = 25;
+    else clampedY = 75;
+  }
+
+  // Add to placed list (prevent duplicates)
   if (!state.placedCards.includes(name)) {
     state.placedCards.push(name);
   }
@@ -221,6 +336,7 @@ function placeCard(name, clientX, clientY, dropZone, pool) {
   card.style.top = clampedY + '%';
   dropZone.appendChild(card);
 
+  saveState();
   updateNextButton();
 }
 
@@ -233,10 +349,13 @@ function removeCard(name, dropZone, pool) {
   const placed = dropZone.querySelector(`.card.placed[data-card="${name}"]`);
   if (placed) placed.remove();
 
-  // Add back to pool
-  const card = createCardElement(name);
-  pool.appendChild(card);
+  // Add back to pool (only if not already there)
+  if (!pool.querySelector(`[data-card="${name}"]`)) {
+    const card = createCardElement(name);
+    pool.appendChild(card);
+  }
 
+  saveState();
   updateNextButton();
 }
 
@@ -246,12 +365,14 @@ let touchCard = null;
 let touchClone = null;
 let touchStartX = 0;
 let touchStartY = 0;
+let touchMoved = false;
 
 function onTouchStart(e) {
   e.preventDefault();
   touchCard = e.target.closest('.card');
   if (!touchCard) return;
 
+  touchMoved = false;
   const touch = e.touches[0];
   touchStartX = touch.clientX;
   touchStartY = touch.clientY;
@@ -273,6 +394,7 @@ function onTouchStart(e) {
 function onTouchMove(e) {
   e.preventDefault();
   if (!touchClone) return;
+  touchMoved = true;
   const touch = e.touches[0];
   touchClone.style.left = (touch.clientX - 40) + 'px';
   touchClone.style.top = (touch.clientY - 20) + 'px';
@@ -291,6 +413,22 @@ function onTouchEnd(e) {
   touchClone.remove();
   touchClone = null;
   touchCard.classList.remove('dragging');
+
+  // If finger barely moved, treat as a tap (click)
+  const dx = Math.abs(touch.clientX - touchStartX);
+  const dy = Math.abs(touch.clientY - touchStartY);
+  if (!touchMoved || (dx < 10 && dy < 10)) {
+    // Tap behavior
+    if (touchCard.classList.contains('placed')) {
+      removeCard(name, dropZone, pool);
+    } else {
+      const rect = dropZone.getBoundingClientRect();
+      const pos = getRandomSafePosition();
+      placeCard(name, rect.left + (pos.x / 100) * rect.width, rect.top + (pos.y / 100) * rect.height, dropZone, pool);
+    }
+    touchCard = null;
+    return;
+  }
 
   // Check where it was dropped
   const dzRect = dropZone.getBoundingClientRect();
@@ -365,6 +503,7 @@ function buildSliders() {
       state.sliderValues[name] = snapped;
       value.textContent = snapped + '%';
       updateTotal();
+      saveState();
     });
 
     row.appendChild(label);
@@ -436,6 +575,7 @@ function buildGrouped() {
     newSlider.value = snapped;
     state.groupedMoi = snapped;
     updateGroupedDisplay();
+    saveState();
   });
 }
 
@@ -480,6 +620,7 @@ function buildVerbalization() {
     textarea.value = state.verbNotes[name] || '';
     textarea.addEventListener('input', () => {
       state.verbNotes[name] = textarea.value;
+      saveState();
     });
 
     div.appendChild(header);
@@ -614,6 +755,7 @@ function restart() {
     verbNotes: {}
   };
 
+  clearSavedState();
   document.body.classList.remove('session-mode', 'has-progress');
   goToStep(1);
 }
