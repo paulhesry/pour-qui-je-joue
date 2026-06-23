@@ -19,7 +19,8 @@ let state = {
   cardPositions: {},     // { cardName: { x, y } } relative % positions in drop zone
   sliderValues: {},      // { cardName: percentValue }
   groupedMoi: 50,        // % for "Moi" in grouped step
-  verbNotes: {}          // { cardName: 'text' }
+  verbNotes: {},         // { cardName: 'text' }
+  customCards: []        // user-created card names
 };
 
 // ============================================================
@@ -66,12 +67,18 @@ function clearSavedState() {
 document.addEventListener('DOMContentLoaded', () => {
   const hasState = loadState();
   if (hasState && state.currentStep > 1 && state.mode) {
-    // Restore guided mode class
     if (!state.guided) {
       document.body.classList.add('session-mode');
     }
     goToStep(state.currentStep);
   }
+
+  document.getElementById('custom-card-input').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      addCustomCard();
+    }
+  });
 });
 
 // ============================================================
@@ -158,7 +165,7 @@ function buildCardPlacement() {
   // Remove previously placed cards from drop zone (keep central card)
   dropZone.querySelectorAll('.card.placed').forEach(c => c.remove());
 
-  const cards = CARDS[state.mode];
+  const cards = [...CARDS[state.mode], ...(state.customCards || [])];
 
   cards.forEach(name => {
     const isPlaced = state.placedCards.includes(name);
@@ -236,6 +243,29 @@ function getRandomSafePosition() {
 function isInCentralZone(xPercent, yPercent) {
   // Central card is at 50%, 50% — exclude a zone around it
   return xPercent > 30 && xPercent < 70 && yPercent > 30 && yPercent < 70;
+}
+
+// --- Custom Cards ---
+
+function addCustomCard() {
+  const input = document.getElementById('custom-card-input');
+  const name = input.value.trim();
+  if (!name) return;
+
+  const allCards = [...CARDS[state.mode], ...(state.customCards || [])];
+  if (allCards.includes(name)) {
+    input.value = '';
+    return;
+  }
+
+  state.customCards.push(name);
+  saveState();
+
+  const pool = document.getElementById('pool-cards');
+  const card = createCardElement(name);
+  pool.appendChild(card);
+
+  input.value = '';
 }
 
 // --- Desktop Drag & Drop ---
@@ -752,7 +782,8 @@ function restart() {
     cardPositions: {},
     sliderValues: {},
     groupedMoi: 50,
-    verbNotes: {}
+    verbNotes: {},
+    customCards: []
   };
 
   clearSavedState();

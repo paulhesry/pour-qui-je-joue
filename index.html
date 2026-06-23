@@ -74,6 +74,16 @@
             <div id="pool-cards" class="flex flex-row lg:flex-col flex-wrap gap-2">
               <!-- Cards injected by JS -->
             </div>
+            <!-- Custom card input -->
+            <div class="mt-4 flex gap-2" id="custom-card-form">
+              <input type="text" id="custom-card-input" placeholder="Ajouter une carte…"
+                maxlength="20"
+                class="flex-1 min-w-0 px-3 py-2 text-sm border-2 border-gray-200 rounded-xl outline-none focus:border-blue-950 transition">
+              <button onclick="addCustomCard()" id="btn-add-card"
+                class="px-3 py-2 bg-blue-950 text-white rounded-xl text-sm font-medium hover:bg-blue-800 transition flex-shrink-0">
+                +
+              </button>
+            </div>
           </div>
 
           <!-- Drop zone -->
